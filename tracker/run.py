@@ -1,8 +1,11 @@
 """Einstiegspunkt: Quellen abfragen, filtern, Diff bilden, benachrichtigen.
 
 Aufruf:
-    python -m tracker.run            # echter Lauf (sendet Push, schreibt State)
-    python -m tracker.run --dry-run  # nur loggen, kein Versand, kein State-Write
+    python -m tracker.run
+    python -m tracker.run --mode fast
+    python -m tracker.run --mode slow
+    python -m tracker.run --mode all
+    python -m tracker.run --dry-run --verbose
 """
 
 from __future__ import annotations
@@ -25,8 +28,6 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class RunSummary:
-    """Diagnose-Kennzahlen eines Laufs – Basis für Heartbeat/Totalausfall."""
-
     attempts: int = 0
     sources_with_data: int = 0
     buyable_count: int = 0
@@ -39,12 +40,16 @@ class RunSummary:
 
 
 def collect_offers_for_product(
-    cfg: Config, product: Product, summary: RunSummary
+    cfg: Config,
+    product: Product,
+    summary: RunSummary,
+    *,
+    mode: str,
 ) -> list[Offer]:
-    """Fragt alle aktivierten Quellen für EIN Produkt ab. Fehler pro Quelle isolieren."""
     all_offers: list[Offer] = []
+    enabled_sources = cfg.enabled_sources(mode)
 
-    for name in cfg.enabled_sources():
+    for name in enabled_sources:
         fn = get_source(name)
         if fn is None:
             log.warning("Unbekannte Quelle '%s' – übersprungen.", name)
@@ -76,13 +81,12 @@ def collect_offers_for_product(
     return all_offers
 
 
-def collect_buyable(cfg: Config) -> tuple[list[Offer], RunSummary]:
-    """Sammelt über die ganze Watchlist alle wirklich bestellbaren Angebote."""
+def collect_buyable(cfg: Config, *, mode: str) -> tuple[list[Offer], RunSummary]:
     buyable: list[Offer] = []
     summary = RunSummary()
 
     for product in cfg.products:
-        offers = collect_offers_for_product(cfg, product, summary)
+        offers = collect_offers_for_product(cfg, product, summary, mode=mode)
 
         for offer in offers:
             log_offer_decision(offer, product, cfg.location)
@@ -104,9 +108,13 @@ def collect_buyable(cfg: Config) -> tuple[list[Offer], RunSummary]:
 
 
 def _maybe_heartbeat(
-    cfg: Config, state: dict, summary: RunSummary, secrets, *, dry_run: bool
+    cfg: Config,
+    state: dict,
+    summary: RunSummary,
+    secrets: Secrets,
+    *,
+    dry_run: bool,
 ) -> None:
-    """Schickt höchstens 1×/Tag eine Statusmeldung; bei Totalausfall einen Alarm."""
     now = datetime.now(timezone.utc)
     today = now.date().isoformat()
 
@@ -137,20 +145,26 @@ def _maybe_heartbeat(
         state["last_heartbeat"] = today
 
 
-def run(dry_run: bool = False) -> int:
+def run(dry_run: bool = False, *, mode: str = "all") -> int:
     cfg = load_config()
     secrets = Secrets.from_env()
 
+    selected_sources = cfg.enabled_sources(mode)
     names = ", ".join(p.name for p in cfg.products)
 
     log.info(
-        "Starte Check für %d Produkt(e) [%s] (Quellen: %s)",
+        "Starte Check für %d Produkt(e) [%s] | Modus=%s | Quellen: %s",
         len(cfg.products),
         names,
-        ", ".join(cfg.enabled_sources()),
+        mode,
+        ", ".join(selected_sources),
     )
 
-    buyable, summary = collect_buyable(cfg)
+    if not selected_sources:
+        log.warning("Keine Quellen für Modus '%s' aktiviert.", mode)
+        return 0
+
+    buyable, summary = collect_buyable(cfg, mode=mode)
 
     for o in buyable:
         log.info("  ✓ %s", o.describe())
@@ -183,7 +197,6 @@ def run(dry_run: bool = False) -> int:
 
 
 def run_demo() -> int:
-    """Schickt einen einmaligen Beispiel-Alarm im echten Format."""
     cfg = load_config()
     secrets = Secrets.from_env()
     product = cfg.product
@@ -216,6 +229,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true", help="Nur loggen, nichts senden/schreiben")
     parser.add_argument("--demo", action="store_true", help="Einmaligen Beispiel-Alarm an Telegram senden")
     parser.add_argument("-v", "--verbose", action="store_true", help="Debug-Logging")
+    parser.add_argument(
+        "--mode",
+        choices=["fast", "slow", "all"],
+        default="all",
+        help="Quellen-Modus: fast, slow oder all",
+    )
 
     args = parser.parse_args(argv)
 
@@ -228,7 +247,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.demo:
         return run_demo()
 
-    return run(dry_run=args.dry_run)
+    return run(dry_run=args.dry_run, mode=args.mode)
 
 
 if __name__ == "__main__":
