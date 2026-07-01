@@ -13,7 +13,7 @@ products:
     # Schlüsselwörter für den Fallback-Titelabgleich, falls eine Quelle keine
     # EAN liefert. ALLE müssen (case-insensitiv) im Titel vorkommen.
     title_must_include:
-      - "portasplit"€
+      - "portasplit"
     # Hinweis: Das Zielgerät (EAN 4048164116478) IST Comfee-gebrandet
     # ("Midea Comfee PortaSplit"), daher KEIN comfee-Ausschluss. Der EAN-Abgleich
     # ist der starke Anker; ohne EAN greift der Titel ("portasplit").
@@ -38,7 +38,7 @@ products:
       - "cool"
     title_must_exclude: []
     max_price: 800.0
-    allow_used: false
+    allow_used: true
     urls:
       geizhals: "https://geizhals.de/midea-comfee-porta-split-a3201826.html"
       idealo: ""
