@@ -19,7 +19,12 @@ from .jsonld import extract_products
 
 log = logging.getLogger(__name__)
 
-_LABEL = {"obi": "OBI", "bauhaus": "BAUHAUS", "hornbach": "Hornbach"}
+_LABEL = {
+    "obi": "OBI",
+    "bauhaus": "BAUHAUS",
+    "hornbach": "Hornbach",
+    "globus": "Globus Baumarkt",
+}
 
 
 def _html(url: str) -> str | None:
