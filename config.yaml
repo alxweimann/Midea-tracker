@@ -18,6 +18,7 @@ products:
       bauhaus: "https://www.bauhaus.info/klimaanlagen/midea-klimasplitgeraet-portasplit-12000-btu/p/31934233"
       hornbach: "https://www.hornbach.de/p/klimasplitgeraet-midea-portasplit-12-000-btu-105-m-weiss/12356554/"
       amazon: "https://www.amazon.de/dp/B0D3PP64JS"
+      globus: "https://www.globus-baumarkt.de/midea/"
 
   - name: "Midea PortaSplit Cool 8.000 BTU"
     eans:
@@ -53,6 +54,7 @@ sources:
   obi: true
   bauhaus: true
   hornbach: true
+  globus: true
   amazon: true
 
 source_modes:
