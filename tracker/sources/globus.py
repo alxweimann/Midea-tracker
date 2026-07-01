@@ -99,14 +99,14 @@ def fetch_offers(cfg: Config, product: Product) -> list[Offer]:
 
     offers: list[Offer] = []
     blocks = _extract_candidate_blocks(html)
-    
+
     log.debug("globus: html_länge=%d", len(html))
-log.debug("globus: kandidat_blöcke=%d", len(blocks))
-log.debug("globus: enthält_portasplit=%s", "portasplit" in html.lower())
-log.debug("globus: enthält_midea=%s", "midea" in html.lower())
+    log.debug("globus: kandidat_blöcke=%d", len(blocks))
+    log.debug("globus: enthält_portasplit=%s", "portasplit" in html.lower())
+    log.debug("globus: enthält_midea=%s", "midea" in html.lower())
 
     for block in blocks:
-        text = BeautifulSoup(block, "Loop html.parser").get_text(" ", strip=True)
+        text = BeautifulSoup(block, "html.parser").get_text(" ", strip=True)
 
         if not _looks_relevant(text, product):
             continue
@@ -133,7 +133,6 @@ log.debug("globus: enthält_midea=%s", "midea" in html.lower())
             )
         )
 
-    # Deduplizieren nach URL + Preis
     unique: dict[tuple[str, float], Offer] = {}
     for offer in offers:
         if offer.price is not None:
