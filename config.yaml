@@ -66,9 +66,9 @@ source_modes:
     - bauhaus
     - globus
     - toom
+  slow:
     - mediamarkt
     - saturn
-  slow:
     - geizhals
     - idealo
     - amazon
