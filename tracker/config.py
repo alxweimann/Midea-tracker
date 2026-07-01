@@ -21,7 +21,6 @@ class Product:
     title_must_exclude: list[str]
     max_price: float
     allow_used: bool
-    # Pro Quelle die direkte Produkt-URL dieses Geräts. Leere Werte = übersprungen.
     urls: dict[str, str] = field(default_factory=dict)
 
     def url_for(self, source: str) -> str:
@@ -52,18 +51,23 @@ class Config:
     products: list[Product]
     location: Location
     sources: dict[str, bool]
+    source_modes: dict[str, list[str]] = field(default_factory=dict)
     stores: dict[str, list[Store]] = field(default_factory=dict)
-    # Tägliche "lebt noch"-Meldung + Totalausfall-Alarm via Telegram.
     heartbeat_enabled: bool = True
-    heartbeat_hour_utc: int = 6  # erste Meldung am/nach dieser UTC-Stunde
+    heartbeat_hour_utc: int = 6
 
     @property
     def product(self) -> Product:
-        """Erstes Produkt – Komfort für Einzelprodukt-Aufrufer (z.B. Demo)."""
         return self.products[0]
 
-    def enabled_sources(self) -> list[str]:
-        return [name for name, on in self.sources.items() if on]
+    def enabled_sources(self, mode: str = "all") -> list[str]:
+        enabled = [name for name, on in self.sources.items() if on]
+
+        if mode == "all":
+            return enabled
+
+        selected = self.source_modes.get(mode, [])
+        return [name for name in selected if name in enabled]
 
     def stores_for(self, chain: str) -> list[Store]:
         return self.stores.get(chain, [])
@@ -71,8 +75,6 @@ class Config:
 
 @dataclass
 class Secrets:
-    """Zur Laufzeit aus Umgebungsvariablen (GitHub Secrets) gelesen."""
-
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None
 
@@ -89,11 +91,6 @@ class Secrets:
 
 
 def _parse_product(p: dict, fallback_urls: dict[str, str] | None = None) -> Product:
-    """Baut ein ``Product`` aus einem Config-Block.
-
-    ``fallback_urls`` dient der Rückwärtskompatibilität: im alten Format stehen
-    die URLs im globalen ``source_urls``-Block statt am Produkt.
-    """
     urls = {k: str(v) for k, v in (p.get("urls") or fallback_urls or {}).items()}
     return Product(
         name=p["name"],
@@ -109,15 +106,14 @@ def _parse_product(p: dict, fallback_urls: dict[str, str] | None = None) -> Prod
 def load_config(config_path: Path = CONFIG_PATH, stores_path: Path = STORES_PATH) -> Config:
     data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
 
-    # Neues Format: products: [ {…, urls: {…}}, … ]
-    # Altes Format: product: {…} + source_urls: {…}  (eine Watchlist mit 1 Eintrag)
     if data.get("products"):
         products = [_parse_product(p) for p in data["products"]]
     else:
         legacy_urls = dict(data.get("source_urls", {}))
         products = [_parse_product(data["product"], fallback_urls=legacy_urls)]
+
     if not products:
-        raise ValueError("config.yaml enthält keine Produkte (weder 'products' noch 'product').")
+        raise ValueError("config.yaml enthält keine Produkte.")
 
     loc = data["location"]
     location = Location(
@@ -135,8 +131,6 @@ def load_config(config_path: Path = CONFIG_PATH, stores_path: Path = STORES_PATH
             stores[chain] = [
                 Store(
                     chain=chain,
-                    # id darf fehlen/leer sein (Filiale recherchiert, ID noch
-                    # offen) – der Adapter überspringt solche Einträge dann.
                     id=str(e.get("id") or "").strip(),
                     name=str(e.get("name") or e.get("id") or "?"),
                     lat=e.get("lat"),
@@ -147,10 +141,15 @@ def load_config(config_path: Path = CONFIG_PATH, stores_path: Path = STORES_PATH
             ]
 
     hb = data.get("heartbeat") or {}
+
     return Config(
         products=products,
         location=location,
         sources=dict(data.get("sources", {})),
+        source_modes={
+            name: [str(source) for source in sources]
+            for name, sources in (data.get("source_modes") or {}).items()
+        },
         stores=stores,
         heartbeat_enabled=bool(hb.get("enabled", True)),
         heartbeat_hour_utc=int(hb.get("hour_utc", 6)),
