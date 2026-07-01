@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 
@@ -39,59 +40,86 @@ class RunSummary:
             self.best_by_product[product_name] = (price, merchant)
 
 
-def collect_offers_for_product(
-    cfg: Config,
-    product: Product,
-    summary: RunSummary,
-    *,
-    mode: str,
-) -> list[Offer]:
-    all_offers: list[Offer] = []
-    enabled_sources = cfg.enabled_sources(mode)
+@dataclass(frozen=True)
+class FetchTask:
+    source_name: str
+    product: Product
 
-    for name in enabled_sources:
-        fn = get_source(name)
-        if fn is None:
-            log.warning("Unbekannte Quelle '%s' – übersprungen.", name)
-            continue
 
-        summary.attempts += 1
+def fetch_source_for_product(cfg: Config, task: FetchTask) -> list[Offer]:
+    fn = get_source(task.source_name)
+    if fn is None:
+        log.warning("Unbekannte Quelle '%s' – übersprungen.", task.source_name)
+        return []
 
-        try:
-            offers = fn(cfg, product)
-        except Exception as exc:
-            log.error(
-                "Quelle '%s' (%s) fehlgeschlagen: %s",
-                name,
-                product.name,
-                exc,
-                exc_info=True,
-            )
-            continue
+    try:
+        offers = fn(cfg, task.product)
+    except Exception as exc:
+        log.error(
+            "Quelle '%s' (%s) fehlgeschlagen: %s",
+            task.source_name,
+            task.product.name,
+            exc,
+            exc_info=True,
+        )
+        return []
 
-        if offers:
-            summary.sources_with_data += 1
-
-        for o in offers:
-            if matches_product(o, product) and o.price is not None:
-                summary.note_best(product.name, o.price, o.merchant or o.source)
-
-            all_offers.append(replace(o, product_name=product.name))
-
-    return all_offers
+    return [replace(o, product_name=task.product.name) for o in offers]
 
 
 def collect_buyable(cfg: Config, *, mode: str) -> tuple[list[Offer], RunSummary]:
     buyable: list[Offer] = []
     summary = RunSummary()
 
-    for product in cfg.products:
-        offers = collect_offers_for_product(cfg, product, summary, mode=mode)
+    enabled_sources = cfg.enabled_sources(mode)
+    tasks: list[FetchTask] = [
+        FetchTask(source_name=source_name, product=product)
+        for product in cfg.products
+        for source_name in enabled_sources
+    ]
+
+    offers_by_product: dict[str, list[Offer]] = {product.name: [] for product in cfg.products}
+
+    if not tasks:
+        return buyable, summary
+
+    max_workers = min(6, len(tasks))
+    log.info("Starte parallele Abfrage mit %d Worker(n) für %d Aufgabe(n).", max_workers, len(tasks))
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_map = {executor.submit(fetch_source_for_product, cfg, task): task for task in tasks}
+
+        for future in as_completed(future_map):
+            task = future_map[future]
+            summary.attempts += 1
+
+            offers = future.result()
+
+            if offers:
+                summary.sources_with_data += 1
+
+            offers_by_product.setdefault(task.product.name, []).extend(offers)
+
+            log.debug(
+                "Quelle fertig | Modus=%s | Produkt=%s | Quelle=%s | Angebote=%d",
+                mode,
+                task.product.name,
+                task.source_name,
+                len(offers),
+            )
+
+    products_by_name = {product.name: product for product in cfg.products}
+
+    for product_name, offers in offers_by_product.items():
+        product = products_by_name[product_name]
 
         for offer in offers:
+            if matches_product(offer, product) and offer.price is not None:
+                summary.note_best(product.name, offer.price, offer.merchant or offer.source)
+
             log_offer_decision(offer, product, cfg.location)
 
-        kept = [o for o in offers if is_buyable(o, product, cfg.location)]
+        kept = [offer for offer in offers if is_buyable(offer, product, cfg.location)]
 
         log.info(
             "'%s': %d Angebote, davon %d wirklich bestellbar < %.0f €.",
@@ -114,26 +142,33 @@ def _maybe_heartbeat(
     secrets: Secrets,
     *,
     dry_run: bool,
+    mode: str,
 ) -> None:
     now = datetime.now(timezone.utc)
     today = now.date().isoformat()
 
+    outage_key = f"last_outage_alert_{mode}"
+    heartbeat_key = f"last_heartbeat_{mode}"
+
     if summary.attempts > 0 and summary.sources_with_data == 0:
-        if state.get("last_outage_alert") != today:
+        if state.get(outage_key) != today:
             log.warning("Totalausfall erkannt (%d Versuche, 0 mit Daten).", summary.attempts)
             msg = format_outage(summary)
 
             if dry_run:
                 print("--- DRY RUN: Totalausfall-Alarm ---\n" + msg)
             elif send_telegram(msg, secrets):
-                state["last_outage_alert"] = today
+                state[outage_key] = today
 
+        return
+
+    if mode != "fast":
         return
 
     if not cfg.heartbeat_enabled:
         return
 
-    if now.hour < cfg.heartbeat_hour_utc or state.get("last_heartbeat") == today:
+    if now.hour < cfg.heartbeat_hour_utc or state.get(heartbeat_key) == today:
         return
 
     log.info("Sende täglichen Heartbeat.")
@@ -142,7 +177,7 @@ def _maybe_heartbeat(
     if dry_run:
         print("--- DRY RUN: Heartbeat ---\n" + msg)
     elif send_telegram(msg, secrets):
-        state["last_heartbeat"] = today
+        state[heartbeat_key] = today
 
 
 def run(dry_run: bool = False, *, mode: str = "all") -> int:
@@ -150,7 +185,7 @@ def run(dry_run: bool = False, *, mode: str = "all") -> int:
     secrets = Secrets.from_env()
 
     selected_sources = cfg.enabled_sources(mode)
-    names = ", ".join(p.name for p in cfg.products)
+    names = ", ".join(product.name for product in cfg.products)
 
     log.info(
         "Starte Check für %d Produkt(e) [%s] | Modus=%s | Quellen: %s",
@@ -166,10 +201,11 @@ def run(dry_run: bool = False, *, mode: str = "all") -> int:
 
     buyable, summary = collect_buyable(cfg, mode=mode)
 
-    for o in buyable:
-        log.info("  ✓ %s", o.describe())
+    for offer in buyable:
+        log.info("  ✓ %s", offer.describe())
 
     state = load_state()
+
     seen = set(state.get("available_keys", []))
     new_offers, current_keys = diff_new(buyable, seen)
 
@@ -185,7 +221,7 @@ def run(dry_run: bool = False, *, mode: str = "all") -> int:
     else:
         log.info("Keine neuen verfügbaren Angebote.")
 
-    _maybe_heartbeat(cfg, state, summary, secrets, dry_run=dry_run)
+    _maybe_heartbeat(cfg, state, summary, secrets, dry_run=dry_run, mode=mode)
 
     state["available_keys"] = sorted(current_keys)
 
