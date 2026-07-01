@@ -14,7 +14,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 
 from .config import Config, Product, Secrets, load_config
-from .matching import is_buyable, matches_product
+from .matching import is_buyable, log_offer_decision, matches_product
 from .models import CHANNEL_ONLINE, CONDITION_NEW, Offer
 from .notify import format_heartbeat, format_offers, format_outage, send_telegram
 from .sources import get_source
