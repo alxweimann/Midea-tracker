@@ -44,6 +44,7 @@ class Store:
     lat: float | None = None
     lon: float | None = None
     distance_km: float | None = None
+    store_url: str | None = None
 
 
 @dataclass
@@ -103,6 +104,12 @@ def _parse_product(p: dict, fallback_urls: dict[str, str] | None = None) -> Prod
     )
 
 
+def _to_optional_float(value) -> float | None:
+    if value is None or value == "":
+        return None
+    return float(value)
+
+
 def load_config(config_path: Path = CONFIG_PATH, stores_path: Path = STORES_PATH) -> Config:
     data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
 
@@ -118,7 +125,7 @@ def load_config(config_path: Path = CONFIG_PATH, stores_path: Path = STORES_PATH
     loc = data["location"]
     location = Location(
         postal_code=str(loc["postal_code"]),
-        city=loc["city"],
+        city=str(loc["city"]),
         latitude=float(loc["latitude"]),
         longitude=float(loc["longitude"]),
         radius_km=float(loc["radius_km"]),
@@ -127,18 +134,22 @@ def load_config(config_path: Path = CONFIG_PATH, stores_path: Path = STORES_PATH
     stores: dict[str, list[Store]] = {}
     if stores_path.exists():
         sdata = yaml.safe_load(stores_path.read_text(encoding="utf-8")) or {}
+
         for chain, entries in sdata.items():
-            stores[chain] = [
-                Store(
-                    chain=chain,
-                    id=str(e.get("id") or "").strip(),
-                    name=str(e.get("name") or e.get("id") or "?"),
-                    lat=e.get("lat"),
-                    lon=e.get("lon"),
-                    distance_km=e.get("distance_km"),
+            stores[chain] = []
+
+            for e in entries or []:
+                stores[chain].append(
+                    Store(
+                        chain=chain,
+                        id=str(e.get("id") or "").strip(),
+                        name=str(e.get("name") or e.get("id") or "?").strip(),
+                        lat=_to_optional_float(e.get("lat")),
+                        lon=_to_optional_float(e.get("lon")),
+                        distance_km=_to_optional_float(e.get("distance_km")),
+                        store_url=str(e.get("store_url") or "").strip() or None,
+                    )
                 )
-                for e in (entries or [])
-            ]
 
     hb = data.get("heartbeat") or {}
 
