@@ -6,271 +6,336 @@ mediamarkt:
     name: "Ludwigshafen-Oggersheim"
     lat: 49.497
     lon: 8.374
+    store_url: "https://www.mediamarkt.de/de/store/ludwigshafen-410"
   - id: "65"
     name: "Mannheim-City"
     lat: 49.487
     lon: 8.466
+    store_url: "https://www.mediamarkt.de/de/store/mannheim-city-65"
   - id: "591"
     name: "Mannheim-Sandhofen"
     lat: 49.543
     lon: 8.462
+    store_url: "https://www.mediamarkt.de/de/store/mannheim-sandhofen-591"
   - id: ""
     name: "Heidelberg"
     lat: 49.409
     lon: 8.694
+    store_url: ""
   - id: ""
     name: "Weinheim"
     lat: 49.548
     lon: 8.666
+    store_url: ""
   - id: ""
     name: "Kaiserslautern"
     lat: 49.443
     lon: 7.771
+    store_url: ""
   - id: ""
     name: "Karlsruhe"
     lat: 49.006
     lon: 8.403
+    store_url: ""
   - id: ""
     name: "Bruchsal"
     lat: 49.124
     lon: 8.598
+    store_url: ""
   - id: ""
     name: "Pforzheim"
     lat: 48.892
     lon: 8.694
+    store_url: ""
   - id: ""
     name: "Heilbronn"
     lat: 49.142
     lon: 9.220
+    store_url: ""
   - id: ""
     name: "Mainz"
     lat: 49.992
     lon: 8.247
+    store_url: ""
   - id: ""
     name: "Darmstadt"
     lat: 49.872
     lon: 8.651
+    store_url: ""
 
 saturn:
   - id: "94"
     name: "Ludwigshafen"
     lat: 49.482
     lon: 8.438
+    store_url: "https://www.saturn.de/de/store/ludwigshafen-94"
   - id: ""
     name: "Mannheim"
     lat: 49.487
     lon: 8.466
+    store_url: ""
   - id: ""
     name: "Heidelberg"
     lat: 49.409
     lon: 8.694
+    store_url: ""
   - id: ""
     name: "Karlsruhe"
     lat: 49.006
     lon: 8.403
+    store_url: ""
   - id: ""
     name: "Mainz"
     lat: 49.992
     lon: 8.247
+    store_url: ""
 
 obi:
   - id: ""
     name: "Ludwigshafen"
     lat: 49.489
     lon: 8.421
+    store_url: "https://www.obi.de/markt/ludwigshafen"
   - id: ""
     name: "Mannheim-Neckarau"
     lat: 49.444
     lon: 8.496
+    store_url: "https://www.obi.de/markt/mannheim-neckarau"
   - id: ""
     name: "Mannheim-Sandhofen"
     lat: 49.543
     lon: 8.462
+    store_url: "https://www.obi.de/markt/mannheim-sandhofen"
   - id: ""
     name: "Worms"
     lat: 49.634
     lon: 8.365
+    store_url: "https://www.obi.de/markt/worms"
   - id: ""
     name: "Speyer"
     lat: 49.317
     lon: 8.431
+    store_url: "https://www.obi.de/markt/speyer"
   - id: ""
     name: "Hockenheim"
     lat: 49.319
     lon: 8.549
+    store_url: "https://www.obi.de/markt/hockenheim"
   - id: ""
     name: "Heidelberg"
     lat: 49.378
     lon: 8.676
+    store_url: "https://www.obi.de/markt/heidelberg"
   - id: ""
     name: "Schwetzingen"
     lat: 49.383
     lon: 8.571
+    store_url: "https://www.obi.de/markt/schwetzingen"
   - id: ""
     name: "Sinsheim"
     lat: 49.253
     lon: 8.879
+    store_url: "https://www.obi.de/markt/sinsheim"
   - id: ""
     name: "Landau"
     lat: 49.198
     lon: 8.116
+    store_url: "https://www.obi.de/markt/landau"
   - id: ""
     name: "Kaiserslautern"
     lat: 49.445
     lon: 7.769
+    store_url: "https://www.obi.de/markt/kaiserslautern"
   - id: ""
     name: "Karlsruhe"
     lat: 49.006
     lon: 8.403
+    store_url: "https://www.obi.de/markt/karlsruhe"
   - id: ""
     name: "Bruchsal"
     lat: 49.124
     lon: 8.598
+    store_url: "https://www.obi.de/markt/bruchsal"
   - id: ""
     name: "Heilbronn"
     lat: 49.142
     lon: 9.220
+    store_url: "https://www.obi.de/markt/heilbronn"
 
 hornbach:
   - id: ""
     name: "Ludwigshafen-Oggersheim"
     lat: 49.504
     lon: 8.375
+    store_url: "https://www.hornbach.de/mein-markt/baumarkt-hornbach-ludwigshafen-oggersheim/"
   - id: ""
     name: "Mannheim-Neckarau"
     lat: 49.442
     lon: 8.496
+    store_url: "https://www.hornbach.de/mein-markt/baumarkt-hornbach-mannheim-neckarau/"
   - id: ""
     name: "Worms"
     lat: 49.634
     lon: 8.356
+    store_url: "https://www.hornbach.de/mein-markt/baumarkt-hornbach-worms/"
   - id: ""
     name: "Schwetzingen"
     lat: 49.383
     lon: 8.571
+    store_url: "https://www.hornbach.de/mein-markt/baumarkt-hornbach-schwetzingen/"
   - id: ""
     name: "Heidelberg"
     lat: 49.407
     lon: 8.681
+    store_url: "https://www.hornbach.de/mein-markt/baumarkt-hornbach-heidelberg/"
   - id: ""
     name: "Kaiserslautern"
     lat: 49.445
     lon: 7.769
+    store_url: "https://www.hornbach.de/mein-markt/baumarkt-hornbach-kaiserslautern/"
   - id: ""
     name: "Landau"
     lat: 49.198
     lon: 8.116
+    store_url: "https://www.hornbach.de/mein-markt/baumarkt-hornbach-landau/"
   - id: ""
     name: "Karlsruhe"
     lat: 49.006
     lon: 8.403
+    store_url: "https://www.hornbach.de/mein-markt/baumarkt-hornbach-karlsruhe/"
 
 bauhaus:
   - id: ""
     name: "Mannheim-Waldhof"
     lat: 49.529
     lon: 8.488
+    store_url: "https://www.bauhaus.info/fachcentren/fachcentrum-mannheim-waldhof"
   - id: ""
     name: "Mannheim-Neckarau"
     lat: 49.442
     lon: 8.496
+    store_url: "https://www.bauhaus.info/fachcentren/fachcentrum-mannheim-neckarau"
   - id: ""
     name: "Heidelberg"
     lat: 49.402
     lon: 8.672
+    store_url: "https://www.bauhaus.info/fachcentren/fachcentrum-heidelberg"
   - id: ""
     name: "Speyer"
     lat: 49.317
     lon: 8.431
+    store_url: "https://www.bauhaus.info/fachcentren/fachcentrum-speyer"
   - id: ""
     name: "Worms"
     lat: 49.632
     lon: 8.365
+    store_url: "https://www.bauhaus.info/fachcentren/fachcentrum-worms"
   - id: ""
     name: "Landau"
     lat: 49.198
     lon: 8.116
+    store_url: "https://www.bauhaus.info/fachcentren/fachcentrum-landau"
   - id: ""
     name: "Karlsruhe"
     lat: 49.006
     lon: 8.403
+    store_url: "https://www.bauhaus.info/fachcentren/fachcentrum-karlsruhe"
   - id: ""
     name: "Bruchsal"
     lat: 49.124
     lon: 8.598
+    store_url: "https://www.bauhaus.info/fachcentren/fachcentrum-bruchsal"
   - id: ""
     name: "Heilbronn"
     lat: 49.142
     lon: 9.220
+    store_url: "https://www.bauhaus.info/fachcentren/fachcentrum-heilbronn"
 
 toom:
   - id: ""
     name: "Frankenthal"
     lat: 49.534
     lon: 8.353
+    store_url: "https://toom.de/markt/frankenthal"
   - id: ""
     name: "Bad Dürkheim"
     lat: 49.461
     lon: 8.166
+    store_url: "https://toom.de/markt/bad-duerkheim"
   - id: ""
     name: "Grünstadt"
     lat: 49.563
     lon: 8.162
+    store_url: "https://toom.de/markt/gruenstadt"
   - id: ""
     name: "Schwetzingen"
     lat: 49.383
     lon: 8.571
+    store_url: "https://toom.de/markt/schwetzingen"
   - id: ""
     name: "Wiesloch"
     lat: 49.295
     lon: 8.697
+    store_url: "https://toom.de/markt/wiesloch"
   - id: ""
     name: "Speyer"
     lat: 49.317
     lon: 8.431
+    store_url: "https://toom.de/markt/speyer"
   - id: ""
     name: "Worms"
     lat: 49.634
     lon: 8.365
+    store_url: "https://toom.de/markt/worms"
   - id: ""
     name: "Haßloch"
     lat: 49.363
     lon: 8.258
+    store_url: "https://toom.de/markt/hassloch"
   - id: ""
     name: "Neustadt"
     lat: 49.350
     lon: 8.148
+    store_url: "https://toom.de/markt/neustadt"
   - id: ""
     name: "Sinsheim"
     lat: 49.253
     lon: 8.879
+    store_url: "https://toom.de/markt/sinsheim"
   - id: ""
     name: "Karlsruhe"
     lat: 49.006
     lon: 8.403
+    store_url: "https://toom.de/markt/karlsruhe"
 
 globus:
   - id: ""
     name: "Bobenheim-Roxheim"
     lat: 49.585
     lon: 8.357
+    store_url: "https://www.globus-baumarkt.de/info/standorte/bobenheim-roxheim/"
   - id: ""
     name: "Wiesental"
     lat: 49.221
     lon: 8.514
+    store_url: "https://www.globus-baumarkt.de/info/standorte/wiesental/"
   - id: ""
     name: "Germersheim"
     lat: 49.222
     lon: 8.366
+    store_url: "https://www.globus-baumarkt.de/info/standorte/germersheim/"
   - id: ""
     name: "Kaiserslautern"
     lat: 49.445
     lon: 7.769
+    store_url: "https://www.globus-baumarkt.de/info/standorte/kaiserslautern/"
   - id: ""
     name: "Homburg"
     lat: 49.326
     lon: 7.339
+    store_url: "https://www.globus-baumarkt.de/info/standorte/homburg/"
   - id: ""
     name: "Maintal"
     lat: 50.150
     lon: 8.833
+    store_url: "https://www.globus-baumarkt.de/info/standorte/maintal/"
