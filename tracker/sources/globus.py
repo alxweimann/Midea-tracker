@@ -17,11 +17,36 @@ log = logging.getLogger(__name__)
 BASE_URL = "https://www.globus-baumarkt.de"
 
 
+_ACCESSORY_MARKERS = [
+    "fensterabdichtung",
+    "zubehör",
+    "air-block",
+    "air block",
+    "sail",
+    "schlauch",
+    "adapter",
+    "dichtung",
+    "ersatzteil",
+]
+
+
+def _clean_text(text: str) -> str:
+    return " ".join((text or "").replace("\xa0", " ").split())
+
+
 def _looks_relevant(text: str, product: Product) -> bool:
     low = text.lower()
+
     if any(bad in low for bad in product.title_must_exclude):
         return False
-    return all(req in low for req in product.title_must_include)
+
+    if any(marker in low for marker in _ACCESSORY_MARKERS):
+        return False
+
+    if not all(req in low for req in product.title_must_include):
+        return False
+
+    return "klima" in low or "btu" in low or "split" in low
 
 
 def _is_buyable_text(text: str) -> bool:
@@ -33,6 +58,7 @@ def _is_buyable_text(text: str) -> bool:
         "ausverkauft",
         "online nicht verfügbar",
         "nicht lieferbar",
+        "keine lieferung",
     ]
     if any(marker in low for marker in negative):
         return False
@@ -52,9 +78,11 @@ def _extract_candidate_blocks(html: str) -> list[str]:
     soup = BeautifulSoup(html, "html.parser")
     blocks: list[str] = []
 
-    for element in soup.find_all(["article", "li", "div"]):
-        text = element.get_text(" ", strip=True)
-        if "portasplit" in text.lower() or "midea" in text.lower():
+    for element in soup.find_all(["article", "li", "div", "section"]):
+        text = _clean_text(element.get_text(" ", strip=True))
+        low = text.lower()
+
+        if "portasplit" in low or ("midea" in low and "klima" in low):
             blocks.append(str(element))
 
     return blocks
@@ -74,14 +102,14 @@ def _extract_title(block_html: str, product: Product) -> str:
     for selector in ["h1", "h2", "h3", ".product-title", "[class*=title]", "[class*=name]"]:
         el = soup.select_one(selector)
         if el:
-            title = el.get_text(" ", strip=True)
+            title = _clean_text(el.get_text(" ", strip=True))
             if title:
                 return title
 
-    text = soup.get_text(" ", strip=True)
-    m = re.search(r"(Midea.{0,120}?PortaSplit.{0,80})", text, flags=re.I)
+    text = _clean_text(soup.get_text(" ", strip=True))
+    m = re.search(r"(Midea.{0,140}?PortaSplit.{0,140})", text, flags=re.I)
     if m:
-        return m.group(1).strip()
+        return _clean_text(m.group(1))
 
     return product.name
 
@@ -92,43 +120,33 @@ def fetch_offers(cfg: Config, product: Product) -> list[Offer]:
         log.info("globus: keine Produkt-URL für '%s' konfiguriert – übersprungen.", product.name)
         return []
 
-    html, how = fetch_page(url)
+    html, how = fetch_page(url, wait_selector="body")
     if not html:
         log.info("globus: keine Seite geladen.")
         return []
 
     offers: list[Offer] = []
-    blocks = _extract_candidate_blocks(html)
 
-    log.debug("globus: html_länge=%d", len(html))
-    log.debug("globus: kandidat_blöcke=%d", len(blocks))
-    log.debug("globus: enthält_portasplit=%s", "portasplit" in html.lower())
-    log.debug("globus: enthält_midea=%s", "midea" in html.lower())
-
-    for block in blocks:
-        text = BeautifulSoup(block, "html.parser").get_text(" ", strip=True)
+    for block in _extract_candidate_blocks(html):
+        text = _clean_text(BeautifulSoup(block, "html.parser").get_text(" ", strip=True))
 
         if not _looks_relevant(text, product):
             continue
 
         price = parse_price(text)
-        if price is None:
+        if price is None or price < 500:
             continue
-
-        offer_url = _extract_url(block, url)
-        title = _extract_title(block, product)
-        in_stock = _is_buyable_text(text)
 
         offers.append(
             Offer(
                 source="globus",
-                title=title,
+                title=_extract_title(block, product),
                 price=price,
-                url=offer_url,
-                in_stock=in_stock,
+                url=_extract_url(block, url),
+                in_stock=_is_buyable_text(text),
                 condition=CONDITION_NEW,
                 channel=CHANNEL_ONLINE,
-                ean=product.eans[0] if product.eans else None,
+                ean=None,
                 merchant="Globus Baumarkt",
             )
         )
