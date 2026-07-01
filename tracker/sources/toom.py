@@ -29,6 +29,9 @@ _ACCESSORY_MARKERS = [
     "dichtung",
     "ersatzteil",
     "hot air stop",
+    "fensterkit",
+    "klima-sail",
+    "abdichtung",
 ]
 
 _DEVICE_MARKERS = [
@@ -41,6 +44,28 @@ _DEVICE_MARKERS = [
     "12000",
     "12.000",
     "btu",
+]
+
+_STORE_POSITIVE_MARKERS = [
+    "verfügbar in",
+    "abholen",
+    "reservieren",
+    "marktabholung",
+    "im markt verfügbar",
+    "verfügbar im markt",
+    "abholung im markt",
+    "click & collect",
+    "click and collect",
+    "im markt abholen",
+]
+
+_STORE_NEGATIVE_MARKERS = [
+    "nicht verfügbar",
+    "derzeit nicht verfügbar",
+    "ausverkauft",
+    "nicht vorrätig",
+    "nicht abholbar",
+    "keine marktabholung",
 ]
 
 
@@ -105,23 +130,10 @@ def _is_online_buyable_text(text: str) -> bool:
 def _is_store_available_text(text: str) -> bool:
     low = text.lower()
 
-    negative = [
-        "nicht verfügbar",
-        "derzeit nicht verfügbar",
-        "ausverkauft",
-        "nicht vorrätig",
-    ]
-    if any(marker in low for marker in negative):
+    if any(marker in low for marker in _STORE_NEGATIVE_MARKERS):
         return False
 
-    positive = [
-        "verfügbar in",
-        "abholen",
-        "reservieren",
-        "marktabholung",
-        "im markt verfügbar",
-    ]
-    return any(marker in low for marker in positive)
+    return any(marker in low for marker in _STORE_POSITIVE_MARKERS)
 
 
 def _distance(cfg: Config, store: Store) -> float | None:
@@ -130,6 +142,25 @@ def _distance(cfg: Config, store: Store) -> float | None:
     if store.lat is None or store.lon is None:
         return None
     return haversine_km(cfg.location.latitude, cfg.location.longitude, store.lat, store.lon)
+
+
+def _store_name_present(store: Store, text: str) -> bool:
+    low = text.lower()
+    name = store.name.lower()
+
+    if name in low:
+        return True
+
+    normalized = name.replace("-", " ").replace("/", " ")
+    parts = [p for p in normalized.split() if len(p) >= 4]
+
+    if not parts:
+        return False
+
+    if all(part in low for part in parts[:2]):
+        return True
+
+    return parts[0] in low
 
 
 def _extract_blocks(html: str) -> list[str]:
@@ -204,14 +235,13 @@ def _store_offers_from_text(
     url: str,
     text: str,
 ) -> list[Offer]:
-    offers: list[Offer] = []
-    low = text.lower()
-
     if not _is_store_available_text(text):
-        return offers
+        return []
+
+    offers: list[Offer] = []
 
     for store in cfg.stores_for("toom"):
-        if store.name.lower() not in low:
+        if not _store_name_present(store, text):
             continue
 
         offers.append(
@@ -219,7 +249,7 @@ def _store_offers_from_text(
                 source="toom",
                 title=title,
                 price=price,
-                url=url,
+                url=store.store_url or url,
                 in_stock=True,
                 condition=CONDITION_NEW,
                 channel=CHANNEL_STORE,
@@ -303,7 +333,6 @@ def _offers_from_blocks(cfg: Config, html: str, product: Product, fallback_url: 
 def fetch_offers(cfg: Config, product: Product) -> list[Offer]:
     url = product.url_for("toom")
     if not url:
-        log.info("toom: keine Produkt-URL für '%s' konfiguriert – übersprungen.", product.name)
         return []
 
     html, how = fetch_page(url, wait_selector="body")
@@ -321,5 +350,8 @@ def fetch_offers(cfg: Config, product: Product) -> list[Offer]:
             unique[(offer.channel, offer.store_name or "", offer.url, offer.price)] = offer
 
     result = list(unique.values())
-    log.info("toom: %d Angebote extrahiert (%s).", len(result), how)
+    online_count = sum(1 for o in result if o.channel == CHANNEL_ONLINE)
+    store_count = sum(1 for o in result if o.channel == CHANNEL_STORE)
+
+    log.info("toom: %d online + %d Filial-Angebote extrahiert (%s).", online_count, store_count, how)
     return result
