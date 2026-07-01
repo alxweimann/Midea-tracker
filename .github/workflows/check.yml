@@ -2,11 +2,20 @@ name: Midea PortaSplit Verfügbarkeit
 
 on:
   schedule:
-    # Alle 10 Minuten (UTC). GitHub kann den Start unter Last leicht verzögern.
+    # Fast-Check alle 10 Minuten.
     - cron: "*/10 * * * *"
-  workflow_dispatch: {}  # manueller Start für Tests
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Check-Modus"
+        required: false
+        default: "fast"
+        type: choice
+        options:
+          - fast
+          - slow
+          - all
 
-# Erlaubt dem Workflow, den aktualisierten state.json zurück zu committen.
 permissions:
   contents: write
 
@@ -17,7 +26,8 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 8  # Sicherheitsnetz: bricht ab, falls ein Shop hängt
+    timeout-minutes: 8
+
     steps:
       - uses: actions/checkout@v4
 
@@ -29,14 +39,25 @@ jobs:
       - name: Abhängigkeiten installieren
         run: pip install -r requirements.txt
 
+      - name: Playwright Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+
       - name: Chromium für Browser-Fallback installieren
-        run: python -m playwright install --with-deps chromium
+        run: python -m playwright install chromium
 
       - name: Verfügbarkeit prüfen
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python -m tracker.run --verbose
+        run: |
+          MODE="${{ github.event.inputs.mode }}"
+          if [[ -z "$MODE" ]]; then
+            MODE="fast"
+          fi
+          python -m tracker.run --mode "$MODE" --verbose
 
       - name: State zurück committen
         run: |
