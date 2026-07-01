@@ -9,7 +9,7 @@ on:
       mode:
         description: "Check-Modus"
         required: false
-        default: "all"
+        default: "fast"
         type: choice
         options:
           - fast
@@ -61,7 +61,7 @@ jobs:
             MODE="fast"
           fi
 
-          python -m tracker.run --mode "$MODE" --verbose
+          python -m tracker.run --mode "$MODE"
 
       - name: State zurück committen
         run: |
