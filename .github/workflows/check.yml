@@ -2,14 +2,14 @@ name: Midea PortaSplit Verfügbarkeit
 
 on:
   schedule:
-    # Fast-Check alle 10 Minuten.
     - cron: "*/10 * * * *"
+    - cron: "7 * * * *"
   workflow_dispatch:
     inputs:
       mode:
         description: "Check-Modus"
         required: false
-        default: "fast"
+        default: "all"
         type: choice
         options:
           - fast
@@ -53,10 +53,14 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          MODE="${{ github.event.inputs.mode }}"
-          if [[ -z "$MODE" ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            MODE="${{ github.event.inputs.mode }}"
+          elif [[ "${{ github.event.schedule }}" == "7 * * * *" ]]; then
+            MODE="slow"
+          else
             MODE="fast"
           fi
+
           python -m tracker.run --mode "$MODE" --verbose
 
       - name: State zurück committen
