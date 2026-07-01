@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
@@ -32,12 +33,17 @@ class RunSummary:
     attempts: int = 0
     sources_with_data: int = 0
     buyable_count: int = 0
+    skipped_without_url: int = 0
     best_by_product: dict[str, tuple[float, str]] = field(default_factory=dict)
+    source_durations: dict[str, float] = field(default_factory=dict)
 
     def note_best(self, product_name: str, price: float, merchant: str) -> None:
         cur = self.best_by_product.get(product_name)
         if cur is None or price < cur[0]:
             self.best_by_product[product_name] = (price, merchant)
+
+    def note_duration(self, source_name: str, seconds: float) -> None:
+        self.source_durations[source_name] = self.source_durations.get(source_name, 0.0) + seconds
 
 
 @dataclass(frozen=True)
@@ -46,11 +52,28 @@ class FetchTask:
     product: Product
 
 
-def fetch_source_for_product(cfg: Config, task: FetchTask) -> list[Offer]:
+def _build_tasks(cfg: Config, *, mode: str) -> tuple[list[FetchTask], int]:
+    enabled_sources = cfg.enabled_sources(mode)
+    tasks: list[FetchTask] = []
+    skipped_without_url = 0
+
+    for product in cfg.products:
+        for source_name in enabled_sources:
+            if not product.url_for(source_name):
+                skipped_without_url += 1
+                continue
+            tasks.append(FetchTask(source_name=source_name, product=product))
+
+    return tasks, skipped_without_url
+
+
+def fetch_source_for_product(cfg: Config, task: FetchTask) -> tuple[list[Offer], float]:
     fn = get_source(task.source_name)
     if fn is None:
         log.warning("Unbekannte Quelle '%s' – übersprungen.", task.source_name)
-        return []
+        return [], 0.0
+
+    started = time.perf_counter()
 
     try:
         offers = fn(cfg, task.product)
@@ -62,29 +85,35 @@ def fetch_source_for_product(cfg: Config, task: FetchTask) -> list[Offer]:
             exc,
             exc_info=True,
         )
-        return []
+        return [], time.perf_counter() - started
 
-    return [replace(o, product_name=task.product.name) for o in offers]
+    duration = time.perf_counter() - started
+    tagged = [replace(o, product_name=task.product.name) for o in offers]
+
+    return tagged, duration
 
 
 def collect_buyable(cfg: Config, *, mode: str) -> tuple[list[Offer], RunSummary]:
     buyable: list[Offer] = []
     summary = RunSummary()
 
-    enabled_sources = cfg.enabled_sources(mode)
-    tasks: list[FetchTask] = [
-        FetchTask(source_name=source_name, product=product)
-        for product in cfg.products
-        for source_name in enabled_sources
-    ]
+    tasks, skipped_without_url = _build_tasks(cfg, mode=mode)
+    summary.skipped_without_url = skipped_without_url
 
     offers_by_product: dict[str, list[Offer]] = {product.name: [] for product in cfg.products}
 
     if not tasks:
+        log.warning("Keine ausführbaren Checks für Modus '%s'.", mode)
         return buyable, summary
 
     max_workers = min(6, len(tasks))
-    log.info("Starte parallele Abfrage mit %d Worker(n) für %d Aufgabe(n).", max_workers, len(tasks))
+    log.info(
+        "Starte parallele Abfrage mit %d Worker(n) für %d Aufgabe(n). "
+        "%d Aufgabe(n) ohne URL übersprungen.",
+        max_workers,
+        len(tasks),
+        skipped_without_url,
+    )
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_map = {executor.submit(fetch_source_for_product, cfg, task): task for task in tasks}
@@ -93,7 +122,8 @@ def collect_buyable(cfg: Config, *, mode: str) -> tuple[list[Offer], RunSummary]
             task = future_map[future]
             summary.attempts += 1
 
-            offers = future.result()
+            offers, duration = future.result()
+            summary.note_duration(task.source_name, duration)
 
             if offers:
                 summary.sources_with_data += 1
@@ -101,11 +131,12 @@ def collect_buyable(cfg: Config, *, mode: str) -> tuple[list[Offer], RunSummary]
             offers_by_product.setdefault(task.product.name, []).extend(offers)
 
             log.debug(
-                "Quelle fertig | Modus=%s | Produkt=%s | Quelle=%s | Angebote=%d",
+                "Quelle fertig | Modus=%s | Produkt=%s | Quelle=%s | Angebote=%d | %.1fs",
                 mode,
                 task.product.name,
                 task.source_name,
                 len(offers),
+                duration,
             )
 
     products_by_name = {product.name: product for product in cfg.products}
@@ -133,6 +164,23 @@ def collect_buyable(cfg: Config, *, mode: str) -> tuple[list[Offer], RunSummary]
 
     summary.buyable_count = len(buyable)
     return buyable, summary
+
+
+def _log_summary(summary: RunSummary, *, elapsed: float) -> None:
+    log.info(
+        "Lauf-Zusammenfassung: Checks=%d | Quellen mit Daten=%d | "
+        "kaufbare Angebote=%d | ohne URL übersprungen=%d | Laufzeit=%.1fs",
+        summary.attempts,
+        summary.sources_with_data,
+        summary.buyable_count,
+        summary.skipped_without_url,
+        elapsed,
+    )
+
+    if summary.source_durations:
+        slowest = sorted(summary.source_durations.items(), key=lambda item: item[1], reverse=True)
+        formatted = ", ".join(f"{name}={seconds:.1f}s" for name, seconds in slowest)
+        log.info("Quellen-Laufzeiten: %s", formatted)
 
 
 def _maybe_heartbeat(
@@ -181,6 +229,8 @@ def _maybe_heartbeat(
 
 
 def run(dry_run: bool = False, *, mode: str = "all") -> int:
+    started = time.perf_counter()
+
     cfg = load_config()
     secrets = Secrets.from_env()
 
@@ -228,6 +278,8 @@ def run(dry_run: bool = False, *, mode: str = "all") -> int:
     if not dry_run:
         save_state(state)
         log.info("State aktualisiert (%d verfügbare Angebote gemerkt).", len(current_keys))
+
+    _log_summary(summary, elapsed=time.perf_counter() - started)
 
     return 0
 
