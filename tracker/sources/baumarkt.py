@@ -24,10 +24,14 @@ def _clean_text(text: str) -> str:
     return " ".join((text or "").replace("\xa0", " ").split())
 
 
-def _html(url: str) -> str | None:
-    html, how = fetch_page(url, wait_selector="script[type='application/ld+json']")
+def _html(url: str, chain: str) -> str | None:
+    wait_selector = "script[type='application/ld+json']"
+
+    html, how = fetch_page(url, wait_selector=wait_selector)
+
     if how == "blocked":
-        log.info("Baumarkt-Seite: Bot-Wall nicht überwunden (geblockt).")
+        log.info("%s: Bot-Wall nicht überwunden.", chain)
+
     return html
 
 
@@ -76,7 +80,6 @@ def _store_name_present(store: Store, text: str) -> bool:
     if name in low:
         return True
 
-    # Vereinfachte Treffer für zusammengesetzte Namen.
     parts = [p for p in name.replace("-", " ").split() if len(p) >= 4]
     return bool(parts) and all(part in low for part in parts[:2])
 
@@ -90,12 +93,13 @@ def _store_offers_from_product_page(
     product_url: str,
     html: str,
 ) -> list[Offer]:
-    offers: list[Offer] = []
-    label = _LABEL.get(chain, chain.capitalize())
     text = _clean_text(html)
 
     if not _store_available_text(text):
-        return offers
+        return []
+
+    label = _LABEL.get(chain, chain.capitalize())
+    offers: list[Offer] = []
 
     for store in cfg.stores_for(chain):
         if not _store_name_present(store, text):
@@ -124,10 +128,9 @@ def _store_offers_from_product_page(
 def fetch_offers(cfg: Config, product: Product, chain: str = "obi") -> list[Offer]:
     url = product.url_for(chain)
     if not url:
-        log.info("%s: keine Produkt-URL für '%s' konfiguriert – übersprungen.", chain, product.name)
         return []
 
-    html = _html(url)
+    html = _html(url, chain)
     if not html:
         return []
 
@@ -135,7 +138,13 @@ def fetch_offers(cfg: Config, product: Product, chain: str = "obi") -> list[Offe
     label = _LABEL.get(chain, chain.capitalize())
     offers: list[Offer] = []
 
-    for prod in extract_products(html):
+    products = extract_products(html)
+
+    if not products:
+        log.info("%s: 0 online + 0 Filial-Angebote extrahiert.", chain)
+        return []
+
+    for prod in products:
         if prod["price"] is None:
             continue
 
