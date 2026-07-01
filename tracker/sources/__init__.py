@@ -23,6 +23,7 @@ SOURCES: dict[str, SourceFn] = {
     "obi": lambda cfg, product: baumarkt.fetch_offers(cfg, product, chain="obi"),
     "bauhaus": lambda cfg, product: baumarkt.fetch_offers(cfg, product, chain="bauhaus"),
     "hornbach": lambda cfg, product: baumarkt.fetch_offers(cfg, product, chain="hornbach"),
+    "globus": lambda cfg, product: baumarkt.fetch_offers(cfg, product, chain="globus"),
     "amazon": amazon.fetch_offers,
 }
 
