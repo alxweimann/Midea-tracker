@@ -2,7 +2,7 @@
 
 Jeder Adapter implementiert ``fetch_offers(cfg, product) -> list[Offer]`` und
 ist über ``get_source(name)`` auffindbar. Adapter sind voneinander isoliert:
-Fehler in einer Quelle dürfen die anderen nicht abbrechen (siehe run.py).
+Fehler in einer Quelle dürfen die anderen nicht abbrechen.
 """
 
 from __future__ import annotations
@@ -15,8 +15,6 @@ from . import amazon, baumarkt, geizhals, idealo, mediamarkt
 
 SourceFn = Callable[[Config, Product], list[Offer]]
 
-# Registrierung: Quellenname -> Aufruf-Funktion.
-# saturn/obi/bauhaus/hornbach teilen sich Code mit ihren Geschwister-Modulen.
 SOURCES: dict[str, SourceFn] = {
     "geizhals": geizhals.fetch_offers,
     "idealo": idealo.fetch_offers,
