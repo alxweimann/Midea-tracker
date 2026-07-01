@@ -1,10 +1,4 @@
-"""toom-Baumarkt-Adapter für Midea PortaSplit.
-
-Wichtig:
-- Keine künstliche EAN setzen.
-- Zubehör konsequent ausschließen.
-- Nur echte PortaSplit-Klimageräte akzeptieren.
-"""
+"""toom-Baumarkt-Adapter für Midea PortaSplit."""
 
 from __future__ import annotations
 
@@ -14,8 +8,9 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
-from ..config import Config, Product
-from ..models import CHANNEL_ONLINE, CONDITION_NEW, Offer
+from ..config import Config, Product, Store
+from ..matching import haversine_km
+from ..models import CHANNEL_ONLINE, CHANNEL_STORE, CONDITION_NEW, Offer
 from .base import fetch_page, parse_price
 from .jsonld import extract_products
 
@@ -82,7 +77,7 @@ def _matches_product_text(text: str, product: Product) -> bool:
     return _looks_like_device(low)
 
 
-def _is_buyable_text(text: str) -> bool:
+def _is_online_buyable_text(text: str) -> bool:
     low = text.lower()
 
     negative = [
@@ -102,12 +97,39 @@ def _is_buyable_text(text: str) -> bool:
         "in den warenkorb",
         "online bestellen",
         "lieferbar",
-        "verfügbar",
-        "reservieren",
-        "abholen",
-        "marktabholung",
+        "lieferung nach hause",
     ]
     return any(marker in low for marker in positive)
+
+
+def _is_store_available_text(text: str) -> bool:
+    low = text.lower()
+
+    negative = [
+        "nicht verfügbar",
+        "derzeit nicht verfügbar",
+        "ausverkauft",
+        "nicht vorrätig",
+    ]
+    if any(marker in low for marker in negative):
+        return False
+
+    positive = [
+        "verfügbar in",
+        "abholen",
+        "reservieren",
+        "marktabholung",
+        "im markt verfügbar",
+    ]
+    return any(marker in low for marker in positive)
+
+
+def _distance(cfg: Config, store: Store) -> float | None:
+    if store.distance_km is not None:
+        return store.distance_km
+    if store.lat is None or store.lon is None:
+        return None
+    return haversine_km(cfg.location.latitude, cfg.location.longitude, store.lat, store.lon)
 
 
 def _extract_blocks(html: str) -> list[str]:
@@ -174,7 +196,45 @@ def _offer_is_plausible(title: str, text: str, price: float | None, product: Pro
     return True
 
 
-def _offers_from_jsonld(html: str, product: Product, url: str) -> list[Offer]:
+def _store_offers_from_text(
+    cfg: Config,
+    product: Product,
+    title: str,
+    price: float,
+    url: str,
+    text: str,
+) -> list[Offer]:
+    offers: list[Offer] = []
+    low = text.lower()
+
+    if not _is_store_available_text(text):
+        return offers
+
+    for store in cfg.stores_for("toom"):
+        if store.name.lower() not in low:
+            continue
+
+        offers.append(
+            Offer(
+                source="toom",
+                title=title,
+                price=price,
+                url=url,
+                in_stock=True,
+                condition=CONDITION_NEW,
+                channel=CHANNEL_STORE,
+                ean=None,
+                merchant="toom Baumarkt",
+                store_name=store.name,
+                distance_km=_distance(cfg, store),
+                product_name=product.name,
+            )
+        )
+
+    return offers
+
+
+def _offers_from_jsonld(cfg: Config, html: str, product: Product, url: str) -> list[Offer]:
     offers: list[Offer] = []
 
     for prod in extract_products(html):
@@ -187,13 +247,15 @@ def _offers_from_jsonld(html: str, product: Product, url: str) -> list[Offer]:
         if not _offer_is_plausible(title, check_text, price, product):
             continue
 
+        online_buyable = bool(prod["in_stock"]) or _is_online_buyable_text(html)
+
         offers.append(
             Offer(
                 source="toom",
                 title=title,
                 price=price,
                 url=url,
-                in_stock=bool(prod["in_stock"]) or _is_buyable_text(html),
+                in_stock=online_buyable,
                 condition=CONDITION_NEW,
                 channel=CHANNEL_ONLINE,
                 ean=ean,
@@ -201,10 +263,12 @@ def _offers_from_jsonld(html: str, product: Product, url: str) -> list[Offer]:
             )
         )
 
+        offers.extend(_store_offers_from_text(cfg, product, title, price, url, html))
+
     return offers
 
 
-def _offers_from_blocks(html: str, product: Product, fallback_url: str) -> list[Offer]:
+def _offers_from_blocks(cfg: Config, html: str, product: Product, fallback_url: str) -> list[Offer]:
     offers: list[Offer] = []
 
     for block in _extract_blocks(html):
@@ -212,6 +276,7 @@ def _offers_from_blocks(html: str, product: Product, fallback_url: str) -> list[
         text = _clean_text(soup.get_text(" ", strip=True))
         title = _extract_title(block, product)
         price = parse_price(text)
+        url = _extract_url(block, fallback_url)
 
         if not _offer_is_plausible(title, text, price, product):
             continue
@@ -221,14 +286,16 @@ def _offers_from_blocks(html: str, product: Product, fallback_url: str) -> list[
                 source="toom",
                 title=title,
                 price=price,
-                url=_extract_url(block, fallback_url),
-                in_stock=_is_buyable_text(text),
+                url=url,
+                in_stock=_is_online_buyable_text(text),
                 condition=CONDITION_NEW,
                 channel=CHANNEL_ONLINE,
                 ean=None,
                 merchant="toom Baumarkt",
             )
         )
+
+        offers.extend(_store_offers_from_text(cfg, product, title, price, url, text))
 
     return offers
 
@@ -244,14 +311,14 @@ def fetch_offers(cfg: Config, product: Product) -> list[Offer]:
         log.info("toom: keine Seite geladen.")
         return []
 
-    offers = _offers_from_jsonld(html, product, url)
+    offers = _offers_from_jsonld(cfg, html, product, url)
     if not offers:
-        offers = _offers_from_blocks(html, product, url)
+        offers = _offers_from_blocks(cfg, html, product, url)
 
-    unique: dict[tuple[str, float], Offer] = {}
+    unique: dict[tuple[str, str, str, float], Offer] = {}
     for offer in offers:
         if offer.price is not None:
-            unique[(offer.url, offer.price)] = offer
+            unique[(offer.channel, offer.store_name or "", offer.url, offer.price)] = offer
 
     result = list(unique.values())
     log.info("toom: %d Angebote extrahiert (%s).", len(result), how)
