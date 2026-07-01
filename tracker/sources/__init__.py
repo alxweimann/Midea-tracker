@@ -1,9 +1,4 @@
-"""Quellen-Adapter.
-
-Jeder Adapter implementiert ``fetch_offers(cfg, product) -> list[Offer]`` und
-ist über ``get_source(name)`` auffindbar. Adapter sind voneinander isoliert:
-Fehler in einer Quelle dürfen die anderen nicht abbrechen.
-"""
+"""Quellen-Adapter."""
 
 from __future__ import annotations
 
@@ -11,7 +6,7 @@ from collections.abc import Callable
 
 from ..config import Config, Product
 from ..models import Offer
-from . import amazon, baumarkt, geizhals, idealo, mediamarkt
+from . import amazon, baumarkt, geizhals, globus, idealo, mediamarkt
 
 SourceFn = Callable[[Config, Product], list[Offer]]
 
@@ -23,7 +18,7 @@ SOURCES: dict[str, SourceFn] = {
     "obi": lambda cfg, product: baumarkt.fetch_offers(cfg, product, chain="obi"),
     "bauhaus": lambda cfg, product: baumarkt.fetch_offers(cfg, product, chain="bauhaus"),
     "hornbach": lambda cfg, product: baumarkt.fetch_offers(cfg, product, chain="hornbach"),
-    "globus": lambda cfg, product: baumarkt.fetch_offers(cfg, product, chain="globus"),
+    "globus": globus.fetch_offers,
     "amazon": amazon.fetch_offers,
 }
 
