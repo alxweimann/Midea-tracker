@@ -25,13 +25,9 @@ def _clean_text(text: str) -> str:
 
 
 def _html(url: str, chain: str) -> str | None:
-    wait_selector = "script[type='application/ld+json']"
-
-    html, how = fetch_page(url, wait_selector=wait_selector)
-
+    html, how = fetch_page(url, wait_selector="script[type='application/ld+json']")
     if how == "blocked":
         log.info("%s: Bot-Wall nicht überwunden.", chain)
-
     return html
 
 
@@ -69,6 +65,12 @@ def _store_available_text(text: str) -> bool:
         "abholbereit",
         "click & collect",
         "click and collect",
+        "im markt erhältlich",
+        "marktbestand",
+        "markt auswählen",
+        "verfügbarkeit im hornbach-markt",
+        "in ihrem hornbach markt",
+        "abholung im markt",
     ]
     return any(marker in low for marker in positive)
 
@@ -80,8 +82,18 @@ def _store_name_present(store: Store, text: str) -> bool:
     if name in low:
         return True
 
-    parts = [p for p in name.replace("-", " ").split() if len(p) >= 4]
-    return bool(parts) and all(part in low for part in parts[:2])
+    normalized = name.replace("-", " ").replace("/", " ")
+    parts = [p for p in normalized.split() if len(p) >= 4]
+
+    if not parts:
+        return False
+
+    if all(part in low for part in parts[:2]):
+        return True
+
+    # Für Hornbach-/Baumarktseiten reicht oft der Haupt-Ort:
+    # "Ludwigshafen-Oggersheim" erscheint z. B. nur als "Ludwigshafen".
+    return parts[0] in low
 
 
 def _store_offers_from_product_page(
