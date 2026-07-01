@@ -49,6 +49,7 @@ def _store_available_text(text: str) -> bool:
         "nicht vorrätig",
         "online nicht verfügbar",
         "keine marktabholung",
+        "nicht abholbar",
     ]
     if any(marker in low for marker in negative):
         return False
@@ -62,29 +63,42 @@ def _store_available_text(text: str) -> bool:
         "verfügbarkeit im markt",
         "sofort abholbereit",
         "abholbereit",
+        "click & collect",
+        "click and collect",
     ]
     return any(marker in low for marker in positive)
 
 
-def _store_offers_from_text(
+def _store_name_present(store: Store, text: str) -> bool:
+    low = text.lower()
+    name = store.name.lower()
+
+    if name in low:
+        return True
+
+    # Vereinfachte Treffer für zusammengesetzte Namen.
+    parts = [p for p in name.replace("-", " ").split() if len(p) >= 4]
+    return bool(parts) and all(part in low for part in parts[:2])
+
+
+def _store_offers_from_product_page(
     cfg: Config,
     product: Product,
     chain: str,
     title: str,
     price: float,
-    url: str,
+    product_url: str,
     html: str,
 ) -> list[Offer]:
     offers: list[Offer] = []
     label = _LABEL.get(chain, chain.capitalize())
-    low = _clean_text(html).lower()
+    text = _clean_text(html)
 
-    if not _store_available_text(low):
+    if not _store_available_text(text):
         return offers
 
     for store in cfg.stores_for(chain):
-        store_name = store.name.lower()
-        if store_name not in low:
+        if not _store_name_present(store, text):
             continue
 
         offers.append(
@@ -92,7 +106,7 @@ def _store_offers_from_text(
                 source=chain,
                 title=title,
                 price=price,
-                url=url,
+                url=store.store_url or product_url,
                 in_stock=True,
                 condition=CONDITION_NEW,
                 channel=CHANNEL_STORE,
@@ -126,7 +140,6 @@ def fetch_offers(cfg: Config, product: Product, chain: str = "obi") -> list[Offe
             continue
 
         buyable, signals = assess_buyability(html, jsonld_in_stock=prod["in_stock"])
-
         title = prod["title"] or product.name
         price = prod["price"]
 
@@ -153,25 +166,24 @@ def fetch_offers(cfg: Config, product: Product, chain: str = "obi") -> list[Offe
         )
 
         offers.extend(
-            _store_offers_from_text(
+            _store_offers_from_product_page(
                 cfg=cfg,
                 product=product,
                 chain=chain,
                 title=title,
                 price=price,
-                url=url,
+                product_url=url,
                 html=html,
             )
         )
 
     unique: dict[tuple[str, str, str, float], Offer] = {}
     for offer in offers:
-        if offer.price is not None:
-            unique[(offer.channel, offer.store_name or "", offer.url, offer.price)] = offer
+        unique[(offer.channel, offer.store_name or "", offer.url, offer.price)] = offer
 
     result = list(unique.values())
-    store_count = sum(1 for offer in result if offer.channel == CHANNEL_STORE)
-    online_count = sum(1 for offer in result if offer.channel == CHANNEL_ONLINE)
+    online_count = sum(1 for o in result if o.channel == CHANNEL_ONLINE)
+    store_count = sum(1 for o in result if o.channel == CHANNEL_STORE)
 
     log.info("%s: %d online + %d Filial-Angebote extrahiert.", chain, online_count, store_count)
     return result
