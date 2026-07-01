@@ -6,7 +6,7 @@ from collections.abc import Callable
 
 from ..config import Config, Product
 from ..models import Offer
-from . import amazon, baumarkt, geizhals, globus, idealo, mediamarkt
+from . import amazon, baumarkt, geizhals, globus, idealo, mediamarkt, toom
 
 SourceFn = Callable[[Config, Product], list[Offer]]
 
@@ -19,6 +19,7 @@ SOURCES: dict[str, SourceFn] = {
     "bauhaus": lambda cfg, product: baumarkt.fetch_offers(cfg, product, chain="bauhaus"),
     "hornbach": lambda cfg, product: baumarkt.fetch_offers(cfg, product, chain="hornbach"),
     "globus": globus.fetch_offers,
+    "toom": toom.fetch_offers,
     "amazon": amazon.fetch_offers,
 }
 
