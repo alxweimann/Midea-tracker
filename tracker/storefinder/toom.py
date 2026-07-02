@@ -52,7 +52,7 @@ def _store_id_from_url(url: str) -> str:
 
 
 def _looks_like_market_link(href: str) -> bool:
-    return "/markt/" in href
+    return "/m/" in href
 
 
 def fetch_stores() -> list[StoreFinderResult]:
