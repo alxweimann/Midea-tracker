@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from collections import defaultdict
 from pathlib import Path
 
 from .base import StoreFinderResult
@@ -74,3 +75,16 @@ class StoreCache:
             json.dumps(raw, ensure_ascii=False, indent=2, sort_keys=True),
             encoding="utf-8",
         )
+
+
+def save_cache(stores: list[StoreFinderResult]) -> None:
+    stores_by_chain: dict[str, list[StoreFinderResult]] = defaultdict(list)
+
+    for store in stores:
+        stores_by_chain[store.chain].append(store)
+
+    StoreCache().save(dict(stores_by_chain))
+
+
+def load_cache() -> dict[str, list[StoreFinderResult]]:
+    return StoreCache().load()
