@@ -5,7 +5,7 @@ products:
     title_must_include:
       - "portasplit"
     title_must_exclude: []
-    max_price: 1000.0
+    max_price: 1200.0
     allow_used: true
     urls:
       geizhals: "https://geizhals.de/midea-comfee-portasplit-v233573.html"
@@ -26,7 +26,7 @@ products:
       - "portasplit"
       - "cool"
     title_must_exclude: []
-    max_price: 800.0
+    max_price: 999.0
     allow_used: true
     urls:
       geizhals: "https://geizhals.de/midea-comfee-porta-split-a3201826.html"
@@ -52,6 +52,7 @@ sources:
   idealo: true
   mediamarkt: true
   saturn: true
+  obi_api: true
   obi: true
   bauhaus: true
   hornbach: true
@@ -61,6 +62,7 @@ sources:
 
 source_modes:
   fast:
+    - obi_api
     - obi
     - hornbach
     - bauhaus
