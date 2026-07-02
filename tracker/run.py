@@ -1,17 +1,10 @@
-"""Einstiegspunkt: Quellen abfragen, filtern, Diff bilden, benachrichtigen.
-
-Aufruf:
-    python -m tracker.run
-    python -m tracker.run --mode fast
-    python -m tracker.run --mode slow
-    python -m tracker.run --mode all
-    python -m tracker.run --dry-run --verbose
-"""
+"""Einstiegspunkt: Quellen abfragen, filtern, Diff bilden, benachrichtigen."""
 
 from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -21,7 +14,14 @@ from datetime import datetime, timezone
 from .config import Config, Product, Secrets, load_config
 from .matching import is_buyable, log_offer_decision, matches_product
 from .models import CHANNEL_ONLINE, CONDITION_NEW, Offer
-from .notify import format_heartbeat, format_offers, format_outage, send_telegram
+from .notify import (
+    format_heartbeat,
+    format_offers,
+    format_outage,
+    format_run_problem,
+    format_run_success,
+    send_telegram,
+)
 from .sources import get_source
 from .state import diff_new, load_state, save_state
 
@@ -50,6 +50,10 @@ class RunSummary:
 class FetchTask:
     source_name: str
     product: Product
+
+
+def _is_github_actions() -> bool:
+    return os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
 
 
 def _build_tasks(cfg: Config, *, mode: str) -> tuple[list[FetchTask], int]:
@@ -207,13 +211,9 @@ def _maybe_heartbeat(
                 print("--- DRY RUN: Totalausfall-Alarm ---\n" + msg)
             elif send_telegram(msg, secrets):
                 state[outage_key] = today
-
         return
 
-    if mode != "fast":
-        return
-
-    if not cfg.heartbeat_enabled:
+    if mode != "fast" or not cfg.heartbeat_enabled:
         return
 
     if now.hour < cfg.heartbeat_hour_utc or state.get(heartbeat_key) == today:
@@ -228,8 +228,29 @@ def _maybe_heartbeat(
         state[heartbeat_key] = today
 
 
+def _send_run_summary(
+    summary: RunSummary,
+    secrets: Secrets,
+    *,
+    dry_run: bool,
+    mode: str,
+    elapsed: float,
+    started_at: datetime,
+) -> None:
+    if dry_run or not _is_github_actions():
+        return
+
+    if summary.attempts > 0 and summary.sources_with_data > 0:
+        msg = format_run_success(summary, mode=mode, elapsed=elapsed, started_at=started_at)
+    else:
+        msg = format_run_problem(summary, mode=mode, elapsed=elapsed, started_at=started_at)
+
+    send_telegram(msg, secrets)
+
+
 def run(dry_run: bool = False, *, mode: str = "all") -> int:
     started = time.perf_counter()
+    started_at = datetime.now(timezone.utc)
 
     cfg = load_config()
     secrets = Secrets.from_env()
@@ -279,7 +300,16 @@ def run(dry_run: bool = False, *, mode: str = "all") -> int:
         save_state(state)
         log.info("State aktualisiert (%d verfügbare Angebote gemerkt).", len(current_keys))
 
-    _log_summary(summary, elapsed=time.perf_counter() - started)
+    elapsed = time.perf_counter() - started
+    _log_summary(summary, elapsed=elapsed)
+    _send_run_summary(
+        summary,
+        secrets,
+        dry_run=dry_run,
+        mode=mode,
+        elapsed=elapsed,
+        started_at=started_at,
+    )
 
     return 0
 
