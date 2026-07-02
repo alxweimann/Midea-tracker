@@ -30,19 +30,19 @@ def _extract_postal_code(text: str) -> str:
     return match.group(1) if match else ""
 
 
-def _extract_city(text: str, name: str, text: str) -> str:
+def _extract_city(raw_text: str, name: str) -> str:
     if name:
         return name
 
-    postal_code = _extract_postal_code(text)
+    postal_code = _extract_postal_code(raw_text)
     if not postal_code:
         return ""
 
-    idx = text.find(postal_code)
+    idx = raw_text.find(postal_code)
     if idx < 0:
         return ""
 
-    after = text[idx + len(postal_code):].strip()
+    after = raw_text[idx + len(postal_code):].strip()
     return after.split(" ")[0] if after else ""
 
 
@@ -76,7 +76,7 @@ def fetch_stores() -> list[StoreFinderResult]:
         name = raw_text or slug.replace("-", " ").title()
 
         postal_code = _extract_postal_code(raw_text)
-        city = _extract_city(raw_text, name, raw_text)
+        city = _extract_city(raw_text, name)
 
         result = StoreFinderResult(
             chain=CHAIN,
