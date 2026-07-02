@@ -1,1 +1,47 @@
+name: Storefinder Update
 
+on:
+  workflow_dispatch:
+
+  schedule:
+    # Jeden Sonntag um 03:00 UTC
+    - cron: "0 3 * * 0"
+
+jobs:
+  update-storefinder:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Abhängigkeiten installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install chromium
+
+      - name: Storefinder aktualisieren
+        run: |
+          python -m tracker.storefinder.run --refresh
+
+      - name: Cache committen
+        run: |
+          if [[ -n "$(git status --porcelain tracker/cache)" ]]; then
+            git config user.name "github-actions"
+            git config user.email "github-actions@github.com"
+
+            git add tracker/cache
+            git commit -m "Update Storefinder Cache"
+            git push
+          else
+            echo "Keine Änderungen."
+          fi
