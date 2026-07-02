@@ -131,6 +131,63 @@ def format_heartbeat(summary, now) -> str:
     return "\n".join(lines)
 
 
+def format_run_success(summary, *, mode: str, elapsed: float, started_at) -> str:
+    ts = started_at.strftime("%d.%m.%Y %H:%M UTC")
+
+    lines = [
+        "✅ <b>Midea Tracker erfolgreich</b>",
+        "",
+        f"Modus: <b>{html.escape(mode)}</b>",
+        f"Checks: {summary.attempts}",
+        f"Quellen mit Daten: {summary.sources_with_data}/{summary.attempts}",
+        f"Kaufbare Treffer: {summary.buyable_count}",
+        f"Ohne URL übersprungen: {summary.skipped_without_url}",
+        f"Laufzeit: {elapsed:.1f} s",
+        f"Zeit: {ts}",
+    ]
+
+    if summary.best_by_product:
+        lines.append("")
+        lines.append("Günstigster Preis je Gerät:")
+        for name, (price, merchant) in sorted(summary.best_by_product.items()):
+            lines.append(
+                f"• {html.escape(name)}: {price:.2f} € ({html.escape(merchant)})"
+            )
+
+    if summary.source_durations:
+        slowest = sorted(
+            summary.source_durations.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )[:5]
+
+        lines.append("")
+        lines.append("Langsamste Quellen:")
+        for source, seconds in slowest:
+            lines.append(f"• {html.escape(source)}: {seconds:.1f} s")
+
+    return "\n".join(lines)
+
+
+def format_run_problem(summary, *, mode: str, elapsed: float, started_at) -> str:
+    ts = started_at.strftime("%d.%m.%Y %H:%M UTC")
+
+    return "\n".join(
+        [
+            "⚠️ <b>Midea Tracker Problem</b>",
+            "",
+            f"Modus: <b>{html.escape(mode)}</b>",
+            f"Checks: {summary.attempts}",
+            f"Quellen mit Daten: {summary.sources_with_data}/{summary.attempts}",
+            f"Kaufbare Treffer: {summary.buyable_count}",
+            f"Laufzeit: {elapsed:.1f} s",
+            f"Zeit: {ts}",
+            "",
+            "Keine Quelle lieferte verwertbare Daten. Bitte GitHub-Logs prüfen.",
+        ]
+    )
+
+
 def format_outage(summary) -> str:
     return (
         "⚠️ Tracker: Totalausfall\n\n"
