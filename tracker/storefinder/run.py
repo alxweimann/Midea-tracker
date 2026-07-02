@@ -1,21 +1,48 @@
-"""Testprogramm für Storefinder."""
+"""Storefinder Runner."""
 
 from __future__ import annotations
 
 import argparse
 import logging
 
-from .cache import StoreCache
+from .cache import save_cache
+from .obi import fetch_stores as fetch_obi
 from .toom import fetch_stores as fetch_toom
+
+log = logging.getLogger(__name__)
+
+
+def refresh() -> int:
+    all_stores = []
+
+    for fetcher in (
+        fetch_toom,
+        fetch_obi,
+    ):
+        try:
+            stores = fetcher()
+            all_stores.extend(stores)
+        except Exception as exc:
+            log.exception("%s fehlgeschlagen: %s", fetcher.__module__, exc)
+
+    save_cache(all_stores)
+
+    print(f"Storefinder aktualisiert ({len(all_stores)} Märkte)")
+    print()
+
+    by_chain: dict[str, int] = {}
+    for store in all_stores:
+        by_chain[store.chain] = by_chain.get(store.chain, 0) + 1
+
+    for chain in sorted(by_chain):
+        print(f"{chain}: {by_chain[chain]} Märkte")
+
+    return 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Storefinder-Test")
-    parser.add_argument(
-        "--refresh",
-        action="store_true",
-        help="Store-Liste neu laden und Cache aktualisieren",
-    )
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--refresh", action="store_true")
 
     args = parser.parse_args()
 
@@ -25,27 +52,11 @@ def main() -> int:
         datefmt="%H:%M:%S",
     )
 
-    cache = StoreCache()
+    if args.refresh:
+        return refresh()
 
-    if not args.refresh and cache.is_fresh():
-        stores = cache.load()
-        print(f"Cache geladen: {sum(len(v) for v in stores.values())} Märkte")
-        return 0
-
-    stores = {
-        "toom": fetch_toom(),
-    }
-
-    cache.save(stores)
-
-    total = sum(len(v) for v in stores.values())
-
-    print(f"Storefinder aktualisiert ({total} Märkte)\n")
-
-    for chain, markets in stores.items():
-        print(f"{chain}: {len(markets)} Märkte")
-
-    return 0
+    parser.print_help()
+    return 1
 
 
 if __name__ == "__main__":
