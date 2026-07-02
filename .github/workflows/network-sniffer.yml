@@ -1,1 +1,42 @@
+name: Network Sniffer
 
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: "Name, z.B. obi, hornbach, bauhaus"
+        required: true
+        default: "obi"
+      url:
+        description: "Zu analysierende URL"
+        required: true
+        default: "https://www.obi.de/p/8620890/midea-mobile-split-klimaanlage-portasplit"
+
+jobs:
+  sniff:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Abhängigkeiten installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install chromium
+
+      - name: Network Sniffer ausführen
+        run: |
+          python -m tracker.devtools.network_sniffer "${{ github.event.inputs.name }}" "${{ github.event.inputs.url }}"
+
+      - name: Sniffer-Logs hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-sniffer-${{ github.event.inputs.name }}
+          path: tracker/devtools/logs/*.json
