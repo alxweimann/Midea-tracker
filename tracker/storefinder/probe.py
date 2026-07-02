@@ -1,28 +1,8 @@
-"""API-Prober für Händler.
-
-Testet bekannte API-Endpunkte und schreibt Statuscodes und Content-Type
-ins Log. Damit können wir schnell erkennen, welche APIs öffentlich
-erreichbar sind und welche geblockt werden.
-"""
+"""API-Prober für Händler."""
 
 from __future__ import annotations
 
-import logging
-
 import requests
-
-log = logging.getLogger(__name__)
-
-TESTS = {
-    "OBI robots": "https://www.obi.de/robots.txt",
-    "OBI": "https://www.obi.de/api/",
-    "Hornbach": "https://www.hornbach.de/",
-    "Hornbach API": "https://www.hornbach.de/api/",
-    "Bauhaus": "https://www.bauhaus.info/",
-    "MediaMarkt": "https://www.mediamarkt.de/api/",
-    "Saturn": "https://www.saturn.de/api/",
-}
-
 
 HEADERS = {
     "User-Agent": (
@@ -32,30 +12,67 @@ HEADERS = {
     )
 }
 
+BASES = {
+    "OBI": "https://www.obi.de",
+    "Hornbach": "https://www.hornbach.de",
+    "Bauhaus": "https://www.bauhaus.info",
+    "MediaMarkt": "https://www.mediamarkt.de",
+    "Saturn": "https://www.saturn.de",
+}
+
+PATHS = [
+    "/robots.txt",
+    "/api",
+    "/api/",
+    "/api/v1",
+    "/api/v2",
+    "/api/graphql",
+    "/graphql",
+    "/graphql/",
+    "/rest",
+    "/rest/v1",
+    "/storefinder",
+    "/store-finder",
+    "/stores",
+    "/markets",
+    "/maerkte",
+    "/filialen",
+]
+
 
 def probe() -> None:
-    print()
-    print("=" * 60)
-    print("Store/API Probe")
-    print("=" * 60)
-
     session = requests.Session()
     session.headers.update(HEADERS)
 
-    for name, url in TESTS.items():
-        try:
-            r = session.get(url, timeout=15, allow_redirects=True)
+    for shop, base in BASES.items():
 
-            print(
-                f"{name:15} "
-                f"{r.status_code:3} "
-                f"{r.headers.get('content-type','-')}"
-            )
+        print()
+        print("=" * 80)
+        print(shop)
+        print("=" * 80)
 
-        except Exception as exc:
-            print(f"{name:15} ERROR {exc}")
+        for path in PATHS:
+
+            url = base + path
+
+            try:
+                r = session.get(
+                    url,
+                    timeout=15,
+                    allow_redirects=False,
+                )
+
+                ctype = r.headers.get("content-type", "-").split(";")[0]
+
+                print(
+                    f"{r.status_code:3} "
+                    f"{ctype:25} "
+                    f"{path}"
+                )
+
+            except Exception as exc:
+                print(f"ERR {path} -> {exc}")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
     probe()
