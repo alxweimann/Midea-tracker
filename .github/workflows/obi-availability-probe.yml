@@ -1,0 +1,37 @@
+name: OBI Availability Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      article_id:
+        description: "OBI Artikelnummer"
+        required: true
+        default: "8620890"
+      postal_code:
+        description: "PLZ"
+        required: true
+        default: "67071"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Abhängigkeiten installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: OBI Availability testen
+        run: |
+          python -m tracker.devtools.obi_availability_probe \
+            --article-id "${{ github.event.inputs.article_id }}" \
+            --postal-code "${{ github.event.inputs.postal_code }}"
