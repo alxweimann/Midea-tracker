@@ -1333,6 +1333,17 @@
     },
     {
       "chain": "toom",
+      "city": "Güstrow",
+      "id": "guestrow",
+      "lat": null,
+      "lon": null,
+      "name": "Güstrow",
+      "postal_code": "",
+      "store_url": "https://toom.de/m/guestrow/",
+      "street": ""
+    },
+    {
+      "chain": "toom",
       "city": "Hagen",
       "id": "hagen",
       "lat": null,
