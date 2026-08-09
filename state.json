@@ -1,5 +1,7 @@
 {
-  "available_keys": [],
+  "available_keys": [
+    "f3b8ef0dfa286966"
+  ],
   "last_heartbeat_fast": "2026-07-14",
   "last_outage_alert_slow": "2026-07-14",
   "last_outage_alert_fast": "2026-07-09"
