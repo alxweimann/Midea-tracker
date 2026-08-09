@@ -310,6 +310,17 @@
     },
     {
       "chain": "toom",
+      "city": "Bensheim",
+      "id": "bensheim",
+      "lat": null,
+      "lon": null,
+      "name": "Bensheim",
+      "postal_code": "",
+      "store_url": "https://toom.de/m/bensheim/",
+      "street": ""
+    },
+    {
+      "chain": "toom",
       "city": "Bergen auf Rügen",
       "id": "bergen-ruegen",
       "lat": null,
