@@ -2191,17 +2191,6 @@
     },
     {
       "chain": "toom",
-      "city": "Neuhaus am Rennweg",
-      "id": "neuhaus-rennweg",
-      "lat": null,
-      "lon": null,
-      "name": "Neuhaus am Rennweg",
-      "postal_code": "",
-      "store_url": "https://toom.de/m/neuhaus-rennweg/",
-      "street": ""
-    },
-    {
-      "chain": "toom",
       "city": "Neukirchen-Vluyn",
       "id": "neukirchen-vluyn",
       "lat": null,
@@ -2550,17 +2539,6 @@
       "name": "Ribnitz-Damgarten",
       "postal_code": "",
       "store_url": "https://toom.de/m/ribnitz-damgarten/",
-      "street": ""
-    },
-    {
-      "chain": "toom",
-      "city": "Riedstadt-Goddelau",
-      "id": "riedstadt-goddelau",
-      "lat": null,
-      "lon": null,
-      "name": "Riedstadt-Goddelau",
-      "postal_code": "",
-      "store_url": "https://toom.de/m/riedstadt-goddelau/",
       "street": ""
     },
     {
